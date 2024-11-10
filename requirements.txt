@@ -1,0 +1,4 @@
+requests~=2.32.3
+DateTime~=5.5
+APScheduler~=3.10.4
+python-telegram-bot~=21.7
