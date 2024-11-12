@@ -176,6 +176,7 @@ dict_days = {"пн": "mon",
 
 async def get_time(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     answer = update.message.text
+    answer = answer.lower()
 
     pattern = r"(\w{2}) (\d{1,2}):(\d{2})"
 
@@ -201,7 +202,7 @@ async def get_time(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 async def change_schedule(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     keyboard = [[InlineKeyboardButton(day, callback_data=day)] for day in daysi]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text("Какой день недели вы хотите изменить?", reply_markup=reply_markup)
+    await update.message.reply_text("Для какого дня будем вносить изменения?", reply_markup=reply_markup)
     return CHANGE_DAY
 
 
@@ -305,7 +306,7 @@ async def modify_time(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
         if (current_data != None):
             if user_input in current_time:
                 # Удаляем введенное время из списка (удаляем точные совпадения)
-                updated_time = ', '.join([time.strip() for time in current_time.split(",") if time.strip() != user_input])
+                updated_time = ', '.join([time.strip() for time in current_time.split(",") if time.strip() not in user_input.strip()])
 
                 # Если оставшийся список пустой, то записываем NULL (или пустую строку)
                 updated_time = updated_time if updated_time else None
@@ -393,7 +394,7 @@ async def handle_free_time(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 # Календарь и напоминания
 
 async def send_reminder(context: ContextTypes.DEFAULT_TYPE, chat_id, title):
-    await context.bot.send_message(chat_id=chat_id, text=f"{title}")
+    await context.bot.send_message(chat_id=chat_id, text=f"Напоминание: {title}")
 
 def get_iam_token():
     response = requests.post(
@@ -422,7 +423,7 @@ conn.commit()
 # Команды бота
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Привет! Я - бот, который поможет вам контролировать! Я много чего умею, весь список команд можете увидеть в меню!\n "
+    await update.message.reply_text("Привет! Я - бот, который поможет вам следить за здоровым образом жизни! Я много чего умею, весь список команд можете увидеть в меню!\n "
                                     "Для начала советую установить свое свободное время с помощью команды /set_schedule, чтобы я понимал, когда можно ставить тренировки\n"
                                     "Если в дальнейшем захотите изменить его, используйте команду /change_schedule \n"
                                     "Теперь мы можем перейти к моим основным функциям:\n"
@@ -530,7 +531,32 @@ async def my_data(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def gpt_food(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Запрашиваем у пользователя его запрос
-    await update.message.reply_text("Введите ваш запрос:")
+    await update.message.reply_text("Введите ваш запрос (например: я хочу сбросить вес / я хочу много энергии):")
+
+    chat_id = update.effective_chat.id
+    event_name = "Прием_пищи"  # Название события по умолчанию
+    hour = 9  # Час для напоминания (например, 9 утра)
+    minute = 0  # Минуты для напоминания (например, ровно в час)
+
+    # ID задачи на основе chat_id и event_name
+    job_id = f"daily_reminder_{chat_id}"
+
+    # Проверяем, существует ли задача с таким ID
+    if scheduler.get_job(job_id) is None:
+        # Создаем ежедневное напоминание
+        scheduler.add_job(
+            send_reminder,
+            trigger=CronTrigger(hour=hour, minute=minute),  # Ежедневный триггер
+            context={'chat_id': chat_id, 'event_name': event_name},
+            id=job_id,
+            replace_existing=True,  # Заменяет, если уже существует задача с таким ID
+            args=[context, chat_id, "Доброе утро! Не забудьте сгенерировать рецепты на сегодня!"]
+        )
+        print(
+            f"Ежедневное напоминание '{event_name}' установлено на {hour:02d}:{minute:02d}.")
+    else:
+        print("Ежедневное напоминание уже установлено!")
+
     return WAITING_FOR_REQUEST_FOOD
 
 async def generate_food(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -570,7 +596,32 @@ async def generate_food(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def gpt_sport(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Запрашиваем у пользователя его запрос
-    await update.message.reply_text("Введите ваш запрос.")
+    await update.message.reply_text("Введите ваш запрос (например: я хочу выровнять осанку / я хочу подкачать руки):")
+
+    chat_id = update.effective_chat.id
+    event_name = "Прием_пищи"  # Название события по умолчанию
+    hour = 9  # Час для напоминания (например, 9 утра)
+    minute = 0  # Минуты для напоминания (например, ровно в час)
+
+    # ID задачи на основе chat_id и event_name
+    job_id = f"daily_reminder_{chat_id}"
+
+    # Проверяем, существует ли задача с таким ID
+    if scheduler.get_job(job_id) is None:
+        # Создаем ежедневное напоминание
+        scheduler.add_job(
+            send_reminder,
+            trigger=CronTrigger(hour=hour, minute=minute),  # Ежедневный триггер
+            context={'chat_id': chat_id, 'event_name': event_name},
+            id=job_id,
+            replace_existing=True,  # Заменяет, если уже существует задача с таким ID
+            args=[context, chat_id, "Доброе утро! Не забудьте сгенерировать рецепты на сегодня!"]
+        )
+        print(
+            f"Ежедневное напоминание '{event_name}' установлено на {hour:02d}:{minute:02d}.")
+    else:
+        print("Ежедневное напоминание уже установлено!")
+
     return WAITING_FOR_REQUEST_SPORT
 
 async def generate_sport(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -589,7 +640,7 @@ async def generate_sport(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "modelUri": f"gpt://{FOLDER_ID}/yandexgpt",
         "completionOptions": {"temperature": 0.3, "maxTokens": 1000},
         "messages": [
-            {"role": "system", "text": "Ты - опытный спортивный тренер. Абсолютно ничего о врачах, консультациях, рисках или противопоказаниях. Дай точные советы по тренировкам, не добавляя дополнительных предостережений. На основе запроса и целей пользователя порекомендуй 3 тренировки в домашних условиях и 1 вид спорта в формате: <вид спорта/тренировки> - <подробности, как заниматься, какие упражнения делать> \n <Как часто проводить тренировки>. Ни в коем случае не пиши про консультацию с врачем или тренером, мы так потеряем всех клиентов!"},
+            {"role": "system", "text": "Ты - опытный спортивный тренер. Абсолютно ничего не пиши о врачах, консультациях, рисках или противопоказаниях. Дай точные советы по тренировкам, не добавляя дополнительных предостережений. На основе запроса и целей пользователя порекомендуй 3 тренировки в домашних условиях и 1 вид спорта в формате: <вид спорта/тренировки> - <подробности, как заниматься, какие упражнения делать> \n <Как часто проводить тренировки>. Ни в коем случае не пиши про консультацию с врачем или тренером, мы так потеряем всех клиентов!"},
             {"role": "user", "text": user_text}
         ]
     }
@@ -702,7 +753,7 @@ async def choose_frequency(update: Update, context: ContextTypes.DEFAULT_TYPE) -
                 "completionOptions": {"temperature": 0.3, "maxTokens": 1000},
                 "messages": [
                     {"role": "system",
-                     "text": "Ты - опытный спортивный тренер. Нужно чтоб ты вывел подходящее время для тренировки. Тебе дается время пользователя, когда он может тренироваться. Выведи ровно столько результатов, сколько просит пользователь. Выбери наилучшее время (лучше всего утром/днем), учитывая частоту тренировок - то есть выведи ровно столько времени, сколько просят. Ответ выведи в формате: mon 9:00 \n tue 9:00 \n wed 9:00 \n thu 9:00 \n fri 9:00 \n sat 9:00 \n sun 9:00. Ничего кроме этого не пиши. Не пиши 'или' и других ненужных слов."},
+                     "text": "Ты - опытный спортивный тренер. Нужно чтоб ты вывел подходящее время для тренировки. Тебе дается время пользователя, когда он может тренироваться. Выведи ровно столько результатов, сколько раз пользователь хочет заниматься в неделю. Выбери наилучшее время (лучше всего утром/днем), учитывая частоту тренировок - то есть выведи ровно столько времени, сколько просят. Ответ выведи в формате: mon 9:00 \n tue 9:00 \n wed 9:00 \n thu 9:00 \n fri 9:00 \n sat 9:00 \n sun 9:00. Ничего кроме этого не пиши. Не пиши 'или' и других ненужных слов."},
                     {"role": "user", "text": f"Мое свободное время для тренировок: \n {'.'.join(schedule)}. Я хочу заниматься {frequency} раз в неделю"}
                 ]
             }
