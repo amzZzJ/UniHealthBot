@@ -9,7 +9,7 @@ from telegram import Update, ReplyKeyboardRemove, InlineKeyboardButton, InlineKe
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, ConversationHandler, CallbackContext, CallbackQueryHandler, filters
 sys.stdout.reconfigure(encoding='utf-8')
 
-TOKEN = "8150452476:AAFlXLJFat6_f5eTKJe10pjLKQXl36C2OF4"
+TOKEN = "7575170127:AAG187KgonmZ-36WpzhIH1EGB0MYDxKOr4w"
 OAUTH_TOKEN = 'y0_AgAAAAA_Z7qeAATuwQAAAAEXbTStAADgsfFcTkhES5l0VNi7NUW4M3pZeg'#OAUTH_TOKEN
 FOLDER_ID = 'b1gpla5n2g0jm6f120el'#'<идентификатор_каталога>'
 API_URL = "https://llm.api.cloud.yandex.net/foundationModels/v1/completion"
