@@ -9,7 +9,7 @@ from telegram import Update, ReplyKeyboardRemove, InlineKeyboardButton, InlineKe
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, ConversationHandler, CallbackContext, CallbackQueryHandler, filters
 sys.stdout.reconfigure(encoding='utf-8')
 
-TOKEN = "7575170127:AAG187KgonmZ-36WpzhIH1EGB0MYDxKOr4w"
+TOKEN = "8150452476:AAFlXLJFat6_f5eTKJe10pjLKQXl36C2OF4"
 OAUTH_TOKEN = 'y0_AgAAAAA_Z7qeAATuwQAAAAEXbTStAADgsfFcTkhES5l0VNi7NUW4M3pZeg'#OAUTH_TOKEN
 FOLDER_ID = 'b1gpla5n2g0jm6f120el'#'<идентификатор_каталога>'
 API_URL = "https://llm.api.cloud.yandex.net/foundationModels/v1/completion"
@@ -19,10 +19,10 @@ scheduler = AsyncIOScheduler()
 
 DATE, TIME, DESCRIPTION = range(3)
 
-WAITING_FOR_REQUEST_FOOD = 0
+WAITING_FOR_REQUEST_FOOD, CHOOSE_FOOD = range(2)
 
 EVENT_TITLE, EVENT_DATE = range(2)
-WAITING_FOR_REQUEST_SPORT, ASK_SAVE_EVENT, GET_EVENT_NAME, CHOOSE_FREQUENCY, ASK_IF_TIME_NORMAL = range(5)
+WAITING_FOR_REQUEST_SPORT, CHOOSE_TYPE, ASK_SAVE_EVENT, GET_EVENT_NAME, CHOOSE_FREQUENCY, ASK_IF_TIME_NORMAL = range(6)
 
 WAITING_FOR_TIME = range(1)
 
@@ -442,7 +442,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     minute = 0  # Минуты для напоминания (например, ровно в час)
 
     # ID задачи на основе chat_id и event_name
-    job_id = f"daily_reminder_{chat_id}"
+    job_id = f"reminder_{update.effective_chat.id}Напоминание о генерации рецептовЕжедневно9:00"
 
     # Проверяем, существует ли задача с таким ID
     if scheduler.get_job(job_id) is None:
@@ -457,6 +457,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         print(
             f"Ежедневное напоминание '{event_name}' установлено на {hour:02d}:{minute:02d}.")
+        await add_reminder_to_user_data(context, update.effective_chat.id, "Напоминание о генерации рецептов", "Ежедневно", f"9:00")
     else:
         print("Ежедневное напоминание уже установлено!")
 
@@ -531,36 +532,32 @@ async def my_data(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def gpt_food(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Запрашиваем у пользователя его запрос
-    await update.message.reply_text("Введите ваш запрос (например: я хочу сбросить вес / я хочу много энергии):")
+    keyboard = [
+        [InlineKeyboardButton("Завтрак", callback_data='breakfast')],
+        [InlineKeyboardButton("Обед", callback_data='lunch')],
+        [InlineKeyboardButton("Ужин", callback_data='dinner')],
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text("Для чего бы вы хотели рецепты?", reply_markup=reply_markup)
+    return CHOOSE_FOOD
 
-    chat_id = update.effective_chat.id
-    event_name = "Прием_пищи"  # Название события по умолчанию
-    hour = 9  # Час для напоминания (например, 9 утра)
-    minute = 0  # Минуты для напоминания (например, ровно в час)
+async def choose_food(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    choice = query.data  # Получаем выбор пользователя
+    context.user_data["food_type"] = choice
 
-    # ID задачи на основе chat_id и event_name
-    job_id = f"daily_reminder_{chat_id}"
-
-    # Проверяем, существует ли задача с таким ID
-    if scheduler.get_job(job_id) is None:
-        # Создаем ежедневное напоминание
-        scheduler.add_job(
-            send_reminder,
-            trigger=CronTrigger(hour=hour, minute=minute),  # Ежедневный триггер
-            context={'chat_id': chat_id, 'event_name': event_name},
-            id=job_id,
-            replace_existing=True,  # Заменяет, если уже существует задача с таким ID
-            args=[context, chat_id, "Доброе утро! Не забудьте сгенерировать рецепты на сегодня!"]
-        )
-        print(
-            f"Ежедневное напоминание '{event_name}' установлено на {hour:02d}:{minute:02d}.")
-    else:
-        print("Ежедневное напоминание уже установлено!")
-
-    return WAITING_FOR_REQUEST_FOOD
+    await query.message.reply_text("Введите ваш запрос (например: я хочу сбросить вес / я хочу много энергии) и пожелания по ингридиентам, если они есть:", reply_markup=ReplyKeyboardRemove())
+    return WAITING_FOR_REQUEST_SPORT
 
 async def generate_food(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Получаем текст, который пользователь ввел на предыдущем шаге
+    choice = context.user_data["food_type"]
+    if choice == 'breakfast':
+        s = "Ты - опытный повар-диетолог. Напиши понятные рецепты для 3 разных завтраков основываясь на целях пользователя и его предпочтениях. Пиши без воды. Продукты должны быть доступные для всех. Также пиши рецепт приготоваления.Ответ выводи в формате: <Завтрак1/Завтрак2/Завтрак3/Завтрак4>\n <Название> \n <Ингредиенты> \n <Рецепт>. Рецепты пиши более менее подробно."
+    elif choice == 'lunch':
+        s = "Ты - опытный повар-диетолог. Напиши понятные рецепты для 3 разных обедов основываясь на целях пользователя и его предпочтениях. Пиши без воды. Продукты должны быть доступные для всех. Также пиши рецепт приготоваления.Ответ выводи в формате: <Обед1/Обед2/Обед3/Обед4>\n <Название> \n <Ингредиенты> \n <Рецепт>. Рецепты пиши более менее подробно."
+    else:
+        s = "Ты - опытный повар-диетолог. Напиши понятные рецепты для 3 разных ужинов основываясь на целях пользователя и его предпочтениях. Пиши без воды. Продукты должны быть доступные для всех. Также пиши рецепт приготоваления.Ответ выводи в формате: <Ужин1/Ужин2/Ужин3/Ужин4>\n <Название> \n <Ингредиенты> \n <Рецепт>. Рецепты пиши более менее подробно."
+
     user_text = update.message.text
 
     try:
@@ -574,7 +571,7 @@ async def generate_food(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "modelUri": f"gpt://{FOLDER_ID}/yandexgpt",
         "completionOptions": {"temperature": 0.3, "maxTokens": 1000},
         "messages": [
-            {"role": "system", "text": "Ты - опытный повар-диетолог. Напиши 2 рецепта завтрака, 2 рецепта обеда, 2 рецепта ужина, с учетом целей и запросов пользователя. Пиши без воды. Продукты должны быть доступные для всех. Также пиши рецепт приготоваления.Ответ выводи в формате: <Завтрак1/Завтрак2/Обед1/Обед2/Ужин1/Ужин2>\n <Название> \n <Ингредиенты> \n <Рецепт>. Рецепты пиши более менее подробно"},
+            {"role": "system", "text": s},
             {"role": "user", "text": user_text}
         ]
     }
@@ -596,37 +593,26 @@ async def generate_food(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def gpt_sport(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Запрашиваем у пользователя его запрос
-    await update.message.reply_text("Введите ваш запрос (например: я хочу выровнять осанку / я хочу подкачать руки):")
+    keyboard = [
+        [InlineKeyboardButton("Домашние тренировки", callback_data='home')],
+        [InlineKeyboardButton("Тренировки в зале", callback_data='gym')],
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text('Выберите тип тренировки:', reply_markup=reply_markup)
+    return CHOOSE_TYPE
 
-    chat_id = update.effective_chat.id
-    event_name = "Прием_пищи"  # Название события по умолчанию
-    hour = 9  # Час для напоминания (например, 9 утра)
-    minute = 0  # Минуты для напоминания (например, ровно в час)
+async def choose_sport_type(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    choice = query.data  # Получаем выбор пользователя
+    context.user_data["sport_type"] = choice
 
-    # ID задачи на основе chat_id и event_name
-    job_id = f"daily_reminder_{chat_id}"
-
-    # Проверяем, существует ли задача с таким ID
-    if scheduler.get_job(job_id) is None:
-        # Создаем ежедневное напоминание
-        scheduler.add_job(
-            send_reminder,
-            trigger=CronTrigger(hour=hour, minute=minute),  # Ежедневный триггер
-            context={'chat_id': chat_id, 'event_name': event_name},
-            id=job_id,
-            replace_existing=True,  # Заменяет, если уже существует задача с таким ID
-            args=[context, chat_id, "Доброе утро! Не забудьте сгенерировать рецепты на сегодня!"]
-        )
-        print(
-            f"Ежедневное напоминание '{event_name}' установлено на {hour:02d}:{minute:02d}.")
-    else:
-        print("Ежедневное напоминание уже установлено!")
-
+    await query.message.reply_text("Введите ваш запрос (например: я хочу выровнять осанку / я хочу подкачать руки):", reply_markup=ReplyKeyboardRemove())
     return WAITING_FOR_REQUEST_SPORT
 
 async def generate_sport(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Получаем текст, который пользователь ввел на предыдущем шаге
     user_text = update.message.text
+    choice = context.user_data["sport_type"]
 
     try:
         iam_token = get_iam_token()
@@ -634,16 +620,26 @@ async def generate_sport(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text('Произошла ошибка при получении токена.')
         return ConversationHandler.END  # Завершаем разговор в случае ошибки
 
-
-    # Формируем запрос к Yandex GPT
-    data = {
-        "modelUri": f"gpt://{FOLDER_ID}/yandexgpt",
-        "completionOptions": {"temperature": 0.3, "maxTokens": 1000},
-        "messages": [
-            {"role": "system", "text": "Ты - опытный спортивный тренер. Абсолютно ничего не пиши о врачах, консультациях, рисках или противопоказаниях. Дай точные советы по тренировкам, не добавляя дополнительных предостережений. На основе запроса и целей пользователя порекомендуй 3 тренировки в домашних условиях и 1 вид спорта в формате: <вид спорта/тренировки> - <подробности, как заниматься, какие упражнения делать> \n <Как часто проводить тренировки>. Ни в коем случае не пиши про консультацию с врачем или тренером, мы так потеряем всех клиентов!"},
-            {"role": "user", "text": user_text}
-        ]
-    }
+    if choice == 'home':
+        data = {
+            "modelUri": f"gpt://{FOLDER_ID}/yandexgpt",
+            "completionOptions": {"temperature": 0.3, "maxTokens": 1000},
+            "messages": [
+                {"role": "system",
+                 "text": "Ты - опытный спортивный тренер. Абсолютно ничего не пиши о врачах, консультациях, рисках или противопоказаниях. Дай точные советы по упражнениям, не добавляя дополнительных предостережений. На основе запроса и целей пользователя порекомендуй 4 упражнения в домашних условиях в формате: <упражнение> - <подробности, как выполнять> \n <Как часто проводить тренировки>. Ни в коем случае не пиши про консультацию с врачем или тренером, мы так потеряем всех клиентов!"},
+                {"role": "user", "text": user_text}
+            ]
+        }
+    else:
+        data = {
+            "modelUri": f"gpt://{FOLDER_ID}/yandexgpt",
+            "completionOptions": {"temperature": 0.3, "maxTokens": 1000},
+            "messages": [
+                {"role": "system",
+                 "text": "Ты - опытный спортивный тренер. Абсолютно ничего не пиши о врачах, консультациях, рисках или противопоказаниях. Дай точные советы по упражнениям, не добавляя дополнительных предостережений. На основе запроса и целей пользователя порекомендуй 4 упражнения для тренажерного зала в формате: <вид спорта/тренировки> - <подробности, как выполнять> \n <Как часто проводить тренировки>. Ни в коем случае не пиши про консультацию с врачем или тренером, мы так потеряем всех клиентов!"},
+                {"role": "user", "text": user_text}
+            ]
+        }
 
     try:
         response = requests.post(
@@ -845,6 +841,7 @@ async def is_time_normal(update: Update, context: CallbackContext) -> int:
         await query.message.reply_text("Тогда вы можете установить расписание с напоминанием сами с помощью команды /set_reminder", reply_markup=ReplyKeyboardRemove())
         return ConversationHandler.END  # Завершаем диалог по сохранению событий
 
+
 def main():
     application = Application.builder().token(TOKEN).build()
 
@@ -862,6 +859,7 @@ def main():
     conv_handler_food = ConversationHandler(
         entry_points=[CommandHandler("generate_food", gpt_food)],
         states={
+            CHOOSE_FOOD: [CallbackQueryHandler(choose_food)],
             WAITING_FOR_REQUEST_FOOD: [MessageHandler(filters.TEXT & ~filters.COMMAND, generate_food)],
             # Обработка запроса пользователя
         },
@@ -872,6 +870,7 @@ def main():
         entry_points=[CommandHandler("generate_sport", gpt_sport)],
         states={
             WAITING_FOR_REQUEST_SPORT: [MessageHandler(filters.TEXT & ~filters.COMMAND, generate_sport)],
+            CHOOSE_TYPE: [CallbackQueryHandler(choose_sport_type)],
             ASK_SAVE_EVENT: [CallbackQueryHandler(button)],
             GET_EVENT_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_event_name)],
             CHOOSE_FREQUENCY: [CallbackQueryHandler(choose_frequency)],
